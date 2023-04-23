@@ -1,0 +1,41 @@
+version: "3.5"
+
+volumes:
+  qrnav_local_postgres_data: {}
+
+services:
+  server:
+    image: qrnav_server
+    restart: always
+    container_name: qrnav_server
+    depends_on:
+      - postgres
+      - redis
+    build:
+      context: .
+      dockerfile: ./Containerfile
+    volumes:
+      - .:/app:z
+    env_file:
+      ./.envs
+    ports:
+      - "8000:8000"
+
+  redis:
+    image: redis:latest
+    container_name: qrnav_local_redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    container_name: qrnav_postgres
+    image: postgres:14
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: qrnav
+      POSTGRES_USER: debub
+      POSTGRES_PASSWORD: debug
+    volumes:
+      - qrnav_local_postgres_data:/var/lib/postgresql/data
