@@ -19,6 +19,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String, index=True)
     roles = relationship("UserToRole", back_populates="user")
+    profile = relationship("Profile", uselist=False, back_populates="user")
 
 class Role(Base):
     __tablename__ = "roles"
