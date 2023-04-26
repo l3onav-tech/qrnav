@@ -4,10 +4,15 @@ from functools import lru_cache
 from fastapi.responses import PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from app.users import models
+from app.settings.database import engine
 import json
 import requests
 import os
 from app.routers import auth
+
+#database
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 

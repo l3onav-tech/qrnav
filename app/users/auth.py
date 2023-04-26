@@ -6,13 +6,13 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from app.settings import settings
+from app.settings import get_settings
 from app.settings.database import engine
 from app.users.models import User
 
 # to get a string like this run:
 # openssl rand -hex 32
-SECRET_KEY = settings.SECRET_KEY
+SECRET_KEY = get_settings().SECRET_KEY
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,7 +29,6 @@ def authenticate_user(username: str, password: str):
     with Session(engine) as session:
         results = session.query(User).filter(User.username == username)
         user = results.first()
-
         if not user:
             return False
         if not verify_password(password, user.password):
