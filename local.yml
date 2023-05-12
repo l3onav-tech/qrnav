@@ -1,6 +1,23 @@
 version: "3.8"
 
 services:
+
+  proxy:
+    image: traefik:v2.10
+    command: 
+      - "--api.insecure=true" 
+      - "--providers.docker=true"
+      - "--entrypoints.postgres.address=:5432"
+      - "--entrypoints.redis.address=:6379"
+      - "--entrypoints.server.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "5432:5432" # PostgreSQL port
+      - "6379:6379" # Redis port
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   server:
     image: qrnav_server
     restart: always
@@ -15,24 +32,45 @@ services:
       - .:/app:z
     env_file:
       ./.envs
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.server.rule=Host(`localhost`)"
+      - "traefik.http.routers.server.entrypoints=server, redis, postgres"
 
   redis:
     image: redis:latest
     container_name: qrnav_local_redis
-    ports:
-      - "6379:6379"
+    expose:
+      - 6379
+    labels:
+      - "traefik.enable=true"
+      # routers
+      - "traefik.tcp.routers.redis.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.redis.entryPoints=redis"
+      - "traefik.tcp.routers.redis.service=redis"
+      # services (needed for TCP)
+      - "traefik.tcp.services.redis.loadbalancer.server.port=6379"
 
   postgres:
     container_name: qrnav_postgres
     image: postgres:latest
     restart: always
-    ports:
-      - "5432:5432"
+    expose:
+      - 5432
     environment:
       POSTGRES_USER: debug
       POSTGRES_PASSWORD: debug
       POSTGRES_DB: qrnav
     volumes:
       - ./.data:/var/lib/postgresql/data
+    labels:
+      - "traefik.enable=true"
+      # routers
+      - "traefik.tcp.routers.postgres.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.postgres.entryPoints=postgres"
+      - "traefik.tcp.routers.postgres.service=postgres"
+      # services (needed for TCP)
+      - "traefik.tcp.services.postgres.loadbalancer.server.port=5432"
+
