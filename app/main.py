@@ -9,7 +9,7 @@ from app.settings.database import engine
 import json
 import requests
 import os
-from app.routers import auth
+from app.routers import auth, taps
 
 #database
 models.Base.metadata.create_all(bind=engine)
@@ -17,11 +17,11 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 origins = [
-    "http://localhost:8000",
+    "http://api.localhost",
 ]
 
 app.include_router(auth.router)
-#app.include_router(content.router)
+app.include_router(taps.router)
 
 app.add_middleware(
     CORSMiddleware,
