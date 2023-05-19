@@ -1,64 +1,86 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie,status
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from fastapi.security import OAuth2PasswordRequestForm
+from typing import Annotated
 
 from app.settings.database import get_session
-from app.users.auth import authenticate_user, create_access_token, get_current_active_user, get_password_hash
+from app.users.auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from app.users.models import User, Role, UserToRole
-from app.users.schemas import SignInRequest, Token, TokenJson, UserIn, UserRead
+from app.users.schemas import UserIn, UserRead
 
-router = APIRouter(prefix="/api/auth")
+router = APIRouter(prefix="/v1/auth")
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 43200
 
-@router.post("/token", response_model=Token)
-def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends()
-):
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
+@router.post("/is_authenticated")
+def is_authenticated(api_token: Annotated[str | None, Cookie()] = None ):
+    if not api_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="You are already logged in",
+        )
+    user = get_current_user(api_token)
+    if user:
+        raise HTTPException(
+           status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You are already logged in",
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    response.set_cookie(key="access_token", value= access_token, httponly=True)
+    return { "user": user.email, "message": "You are in" }
 
-@router.post("/signin", response_model=TokenJson)
-def login_for_access_token(
-    signin_request: SignInRequest
+@router.post("/signin")
+async def login_for_access_token(
+    user: UserIn,
+    response: Response,
+    api_token: Annotated[str | None, Cookie()] = None,
 ):
-    user = authenticate_user(signin_request.username, signin_request.password)
+    if api_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You are already logged in",
+        )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Incorrect email or password",
+        )
+    user = authenticate_user(user.email, user.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
-    return {"token": access_token, "token_type": "bearer"}
+    print("access_token: ", access_token)
+    response.set_cookie(
+        key="api_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        expires=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    return {"message": "Welcome Back!", "user": user.email}
 
-@router.get("/users/me", response_model=UserRead)
-def read_users_me(current_user: User = Depends(get_current_active_user)):
-    user = UserRead(username=current_user.username, email=current_user.email)
-    return user
-
-@router.get("/users/me/items")
-def read_own_items(current_user: User = Depends(get_current_active_user)):
-    return [{"item_id": "Foo", "owner": current_user.username}]
-
-@router.post("/signup", response_model=UserRead)
+@router.post("/signup")
 def sign_up(user: UserIn, session: Session = Depends(get_session)):
+    already_exists = user.email in [session.query(User).filter("email" == user.email).first()]
+    # Check if user already exists
+    if already_exists:
+        # TODO: Return a better error message
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    if user.password != user.password_confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
     hashed_password = get_password_hash(user.password)
-    role = session.query(Role).filter(Role.name == "ROLE_USER").first()
+    role = session.query(Role).first()
     user_to_role = UserToRole()
     user_to_role.role = role
     new_user = User(email=user.email, username=user.username, password=hashed_password)
@@ -66,5 +88,8 @@ def sign_up(user: UserIn, session: Session = Depends(get_session)):
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
-    return UserRead(username=new_user.username, email=new_user.email)
 
+    if new_user.id is None:
+        raise HTTPException(status_code=500, detail="Error creating user")
+
+    return { "createdwithsuccess": True, "message": "Welcome to the club!" }

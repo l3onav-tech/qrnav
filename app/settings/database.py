@@ -1,5 +1,6 @@
 from typing import Generator
 from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, Session
 from dotenv import load_dotenv
@@ -11,7 +12,8 @@ load_dotenv()
 
 engine = create_engine(get_settings().database_url, pool_pre_ping=True)
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 @lru_cache
 def create_session() -> scoped_session:

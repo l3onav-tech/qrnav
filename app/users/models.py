@@ -1,6 +1,8 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from typing import List
+from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+from app.tap.models import TapModel
 from app.settings.database import Base
 
 class UserToRole(Base):
@@ -19,7 +21,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String, index=True)
     roles = relationship("UserToRole", back_populates="user")
-    profile = relationship("Profile", uselist=False, back_populates="user")
+    taps: Mapped[List["TapModel"]] = relationship(back_populates="user")
 
 class Role(Base):
     __tablename__ = "roles"
