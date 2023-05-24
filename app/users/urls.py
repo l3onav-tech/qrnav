@@ -6,7 +6,7 @@ from typing import Annotated
 from app.settings.database import get_session
 from app.users.auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from app.users.models import User, Role, UserToRole
-from app.users.schemas import UserIn, UserRead
+from app.users.schemas import UserIn
 
 router = APIRouter(prefix="/v1/auth")
 

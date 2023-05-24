@@ -4,6 +4,7 @@ services:
 
   proxy:
     image: traefik:v2.10
+    container_name: traefik_container
     command: 
       - "--api.insecure=true" 
       - "--providers.docker=true"
@@ -19,9 +20,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   server:
-    image: qrnav_server
+    image: server_container
     restart: always
-    container_name: qrnav_server
+    container_name: server_container
     depends_on:
       - postgres
       - proxy
@@ -42,7 +43,7 @@ services:
 
   redis:
     image: redis:latest
-    container_name: qrnav_local_redis
+    container_name: redis_container
     expose:
       - 6379
     labels:
