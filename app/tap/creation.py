@@ -10,15 +10,6 @@ from app.settings.object_storage import upload_file_to_bucket
 from fastapi import Depends, UploadFile, File
 
 class Tap:
-    """
-    Model
-        id = Column(Uuid, primary_key=True)
-        name = Column(String, unique=True)
-        qr_url = Column(String, unique=True)
-        note = Column(String)
-        created_at = Column(DateTime, server_default=function.now())
-        updated_at = Column(DateTime, onupdate=function.now())
-    """
 
     def __init__(self, data: TapSchema, model=TapModel, user = uuid.uuid4):
         """
@@ -46,7 +37,8 @@ class Tap:
         img.save(buffer)
         buffer.seek(0) # rewind pointer back to start
         response_uploading = upload_file_to_bucket(buffer, "generated", "qr", name_file)
-        return  {"url": url,"response_uploading": response_uploading }
+        print(response_uploading)
+        return response_uploading
 
     def create_tap(self):
         """
@@ -60,19 +52,16 @@ class Tap:
                 user_id = self.user,
             )
             qr_url = self.create_qr_url(tap.id)
-            tap.qr_url = qr_url['url']
+            tap.qr_url = qr_url['public_url']
             session.add(tap)
             session.commit()
             session.refresh(tap)
             return tap
-
         
-    def get_qr(self):
-        """
-        Get QR Code from s3
-        """
-        pass
-         
+    def get_tap(self, tap):
+        with Session(engine) as session:
+            response = session.query(TapModel).filter(Tap.user_id == self.user, Tap.id == tap).first()
+            return response
 
     def update_qr(self):
         """
