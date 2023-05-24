@@ -29,4 +29,20 @@ def create_tap(
             detail="You are not logged in",
         )
     tap = Tap(data, user = str(user.id)).create_tap()
-    return {"user": user, "api_token": api_token, "tap": tap}
+    return {"user": user.email, "tap": tap}
+
+@router.get("{tap_id}")
+def read_tap(tap_id: str, api_token: Annotated[str | None, Cookie()] = None):
+    if not api_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You are not logged in",
+        )
+    user = get_current_user(api_token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You are not logged in",
+        )
+    tap = Tap(user = user.id).read_tap(tap_id)
+    return tap

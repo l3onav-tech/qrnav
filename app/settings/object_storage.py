@@ -4,6 +4,7 @@ import boto3
 import logging
 
 from app.settings import get_settings
+from app.settings.progress_percentage import ProgressPercentage
 from fastapi import BackgroundTasks, File, UploadFile
 
 FILE_DESTINATION = "app/static/images"
@@ -17,21 +18,27 @@ s3 = boto3.client(
     endpoint_url            = f"https://{get_settings().OBJECT_STORAGE_ENDPOINT_PUBLIC}"
 )
 
-def upload_file_to_bucket(file_obj, bucket, folder, object_name=None):
-    """Upload a file to an S3 bucket
-    :param file_obj: File to upload
-    :param bucket: Bucket to upload to
-    :param folder: Folder to upload to
-    :param object_name: S3 object name. If not specified then FILE_DESTINATION is used
-    :return: True if file was uploaded, else False
-    """
-    print("buckets ->", s3.list_buckets())
-    print(type(file_obj))
+
+
+def upload_file_to_bucket(file_obj, bucket = "generated", folder = "qr", object_name=None):
     if object_name is None:
         object_name = FILE_DESTINATION
     # Upload the file
     try:
-        response = s3.put_object(Bucket="generated", Key=f"{object_name}", Body=file_obj)
+        response = s3.put_object(
+            Bucket=bucket,
+            Key=f"{folder}/{object_name}", 
+            Body=file_obj
+        )
+        response['public_url'] = s3.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': "generated",
+                'Key': f"qr/{object_name}"
+            },
+            ExpiresIn=3600
+        )
+        return response
     except ClientError as e:
         logging.error(e)
         return False
