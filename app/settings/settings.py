@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_ENDPOINT_PUBLIC: str = os.getenv("OBJECT_STORAGE_ENDPOINT_PUBLIC")
     OBJECT_STORAGE_ENDPOINT_PRIVATE: str = os.getenv("OBJECT_STORAGE_ENDPOINT_PRIVATE")
     OBJECT_STORAGE_REGION: str = os.getenv("OBJECT_STORAGE_REGION")
+    GOOGLE_ID_CLIENT: str = os.getenv("GOOGLE_ID_CLIENT")
+    GOOGLE_SECRET_CLIENT: str = os.getenv("GOOGLE_SECRET_CLIENT")
 
     class Config:
         env_file = ".envs"

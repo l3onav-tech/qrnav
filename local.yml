@@ -64,7 +64,7 @@ services:
     environment:
       POSTGRES_USER: debug
       POSTGRES_PASSWORD: debug
-      POSTGRES_DB: qrnav
+      POSTGRES_DB: db 
     volumes:
       - ./.data:/var/lib/postgresql/data
     labels:
