@@ -1,16 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 
-from sqlalchemy.sql.functions import current_user
 
 from app.settings.database import get_session
 from app.users.models import User, Role, UserToRole
-from app.users.schemas import SignUpRequest, SignInRequest
-from app.users.auth import AuthHandler
+from app.users.schemas import SignUpRequest, SignInRequest 
+from app.users.auth import authenticate_user, create_access_token, get_current_active_user
 
-auth_handler = AuthHandler()
 
 router = APIRouter(prefix="/v1/auth")
 
@@ -18,37 +16,33 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 43200
 
 @router.post("/is_authenticated")
 async def is_authenticated(
-    current_user: str = Depends(auth_handler.auth_wraper),
-):
+    current_user: Annotated[User, Depends(get_current_active_user)]):
     return { "user": current_user, "message": "You are in" }
 
 @router.post("/signin")
 async def login_for_access_token(
-    current_user: SignInRequest,
-    response: Response,
-    api_token: Annotated[str | None, Cookie()] = None,
-    session: Session = Depends(get_session),
+    form_data: SignInRequest,
 ):
-    if api_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are already logged in",
-        )
-    user = session.query(User).filter(User.email == current_user.email).first()
-    if (not current_user) or (not auth_handler.verify_password(current_user.password, user.password)):
+    if  (
+        not form_data.username 
+        and not form_data.email 
+    ) or (
+        not form_data.password 
+    ) or (
+        not authenticate_user( username=form_data.username, password=form_data.password )
+        and not authenticate_user( username=form_data.email, password=form_data.password )
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    access_token = auth_handler.encode_token(user.email)
-    response.set_cookie(
-        key="api_token",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        expires=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    return {"message": "Welcome Back!", "user": user.email}
+    access_token = create_access_token(data={"sub": form_data.email.lower(), "scopes": ["me"]})
+    return {
+        "message": "Welcome Back!",
+        "user": form_data.email.lower(),
+        "access_token": access_token, 
+        "token_type": "bearer"
+    }
 
 @router.post("/signup")
 def sign_up(user: SignUpRequest, session: Session = Depends(get_session)):
@@ -58,7 +52,7 @@ def sign_up(user: SignUpRequest, session: Session = Depends(get_session)):
         raise HTTPException(status_code=400, detail="Email already registered")
     if user.password != user.password_confirm:
         raise HTTPException(status_code=400, detail="Passwords do not match")
-    hashed_password = auth_handler.get_password_hash(user.password)
+    hashed_password =get_password_hash(user.password)
     role = session.query(Role).first()
     user_to_role = UserToRole()
     user_to_role.role = role
